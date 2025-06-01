@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yodalog's Official Reviews of the Great Movies of the Great Nation of America Even Tho I Am From Israel Which BTW This Site Also Includes Israeli Movies</title>
+  <style>
+    body { background-color: #111; color: #eee; font-family: Arial, sans-serif; padding: 20px; }
+    h1, h2 { color: #feda4a; }
+    input, select, button, textarea {
+      padding: 8px; margin: 5px; width: 100%; box-sizing: border-box;
+    }
+    .movie-entry {
+      background-color: #222; padding: 10px; margin: 10px 0; border-radius: 5px; display: flex; gap: 15px; align-items: flex-start;
+    }
+    .movie-info { flex: 1; }
+    .star { color: gold; }
+    .poster { width: 100px; border-radius: 5px; }
+    .edit-button, .list-button, .delete-button {
+      margin-top: 10px; background-color: #444; color: #eee; border: none; padding: 5px 10px; cursor: pointer;
+    }
+    .delete-button { background-color: darkred; }
+    .list-title { margin-top: 20px; }
+    #favoriteMovieContainer {
+      margin-bottom: 30px;
+      padding: 15px;
+      background-color: #222;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Yodalog's Official Reviews of the Great Movies of the Great Nation of America Even Tho I Am From Israel Which BTW This Site Also Includes Israeli Movies</h1>
+
+<div id="favoriteMovieContainer">
+  <h2>🎬 My Favorite Movie</h2>
+  <div id="favoriteMovie"></div>
+</div>
+
+<h2>Create a List</h2>
+<input type="text" id="listName" placeholder="List Name">
+<button onclick="createList()">Create List</button>
+<div id="lists"></div>
+
+<h2>Add a Movie</h2>
+<input type="text" id="movieTitle" placeholder="Movie Title">
+<input type="text" id="movieYear" placeholder="Year">
+<input type="number" id="movieRating" placeholder="Rating (e.g. 3.5)" step="0.5" min="0" max="5">
+<textarea id="movieReview" placeholder="Your review..."></textarea>
+<button onclick="addMovie()">Add Movie</button>
+
+<h2>All Movies</h2>
+<div id="movieList"></div>
+
+<script>
+const API_KEY = '732e63df';
+let movieList = JSON.parse(localStorage.getItem('movieList')) || [];
+let customLists = JSON.parse(localStorage.getItem('customLists')) || [];
+let favoriteMovieIndex = parseInt(localStorage.getItem('favoriteMovieIndex')) || null;
+
+async function addMovie() {
+  const title = document.getElementById('movieTitle').value;
+  const year = document.getElementById('movieYear').value;
+  const rating = parseFloat(document.getElementById('movieRating').value);
+  const review = document.getElementById('movieReview').value;
+  if (!title || !year || isNaN(rating)) return alert('Please fill all fields.');
+  const posterUrl = await fetchPoster(title, year);
+  movieList.push({ title, year, rating, review, posterUrl });
+  localStorage.setItem('movieList', JSON.stringify(movieList));
+  displayMovies();
+  displayFavorite();
+  document.getElementById('movieTitle').value = '';
+  document.getElementById('movieYear').value = '';
+  document.getElementById('movieRating').value = '';
+  document.getElementById('movieReview').value = '';
+}
+
+function deleteMovie(index) {
+  if (confirm(`Delete "${movieList[index].title}" from your reviews?`)) {
+    movieList.splice(index, 1);
+    localStorage.setItem('movieList', JSON.stringify(movieList));
+    displayMovies();
+    displayFavorite();
+  }
+}
+
+async function fetchPoster(title, year) {
+  try {
+    const response = await fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&t=${encodeURIComponent(title)}&y=${year}`);
+    const data = await response.json();
+    return data.Poster && data.Poster !== 'N/A' ? data.Poster : '';
+  } catch (err) {
+    console.error('Failed to fetch poster', err);
+    return '';
+  }
+}
+
+function setFavorite(index) {
+  favoriteMovieIndex = index;
+  localStorage.setItem('favoriteMovieIndex', index);
+  displayFavorite();
+}
+
+function displayFavorite() {
+  const container = document.getElementById('favoriteMovie');
+  if (favoriteMovieIndex == null || !movieList[favoriteMovieIndex]) {
+    container.innerHTML = '<em>No favorite selected yet.</em>';
+    return;
+  }
+  const movie = movieList[favoriteMovieIndex];
+  const stars = '★'.repeat(Math.floor(movie.rating)) + (movie.rating % 1 >= 0.5 ? '½' : '');
+  container.innerHTML = `
+    <div class="movie-entry">
+      ${movie.posterUrl ? `<img src="${movie.posterUrl}" alt="Poster" class="poster">` : ''}
+      <div class="movie-info">
+        <strong>${movie.title} (${movie.year})</strong><br>
+        <span class="star">${stars}</span><br>
+        <em>${movie.review}</em>
+      </div>
+    </div>`;
+}
+
+function editReview(index) {
+  const newReview = prompt("Edit your review:", movieList[index].review);
+  const newRating = prompt("Edit your rating (e.g. 3.5):", movieList[index].rating);
+  if (newReview !== null && newRating !== null && !isNaN(parseFloat(newRating))) {
+    movieList[index].review = newReview;
+    movieList[index].rating = parseFloat(newRating);
+    localStorage.setItem('movieList', JSON.stringify(movieList));
+    displayMovies();
+    displayFavorite();
+  }
+}
+
+function addToList(index) {
+  const listNames = customLists.map((l, i) => `${i + 1}: ${l.name}`).join("\n");
+  const selected = prompt(`Choose a list to add this movie to:\n${listNames}`);
+  const idx = parseInt(selected) - 1;
+  if (!customLists[idx]) return alert("Invalid list selection.");
+  customLists[idx].items.push(movieList[index]);
+  localStorage.setItem('customLists', JSON.stringify(customLists));
+  displayLists();
+  alert(`Added to list: ${customLists[idx].name}`);
+}
+
+function createList() {
+  const listName = document.getElementById('listName').value;
+  if (!listName) return alert("Please enter a list name.");
+  customLists.push({ name: listName, items: [] });
+  localStorage.setItem('customLists', JSON.stringify(customLists));
+  document.getElementById('listName').value = '';
+  displayLists();
+}
+
+function deleteList(index) {
+  if (confirm(`Are you sure you want to delete the list "${customLists[index].name}"?`)) {
+    customLists.splice(index, 1);
+    localStorage.setItem('customLists', JSON.stringify(customLists));
+    displayLists();
+  }
+}
+
+function moveItemInList(listIndex, itemIndex, direction) {
+  const list = customLists[listIndex];
+  const newIndex = itemIndex + direction;
+  if (newIndex >= 0 && newIndex < list.items.length) {
+    const temp = list.items[itemIndex];
+    list.items[itemIndex] = list.items[newIndex];
+    list.items[newIndex] = temp;
+    localStorage.setItem('customLists', JSON.stringify(customLists));
+    displayLists();
+  }
+}
+
+function displayLists() {
+  const listSection = document.getElementById('lists');
+  listSection.innerHTML = '<h2>Your Lists</h2>';
+  customLists.forEach((list, listIndex) => {
+    let moviesHtml = '';
+    list.items.forEach((movie, i) => {
+      const stars = '★'.repeat(Math.floor(movie.rating)) + (movie.rating % 1 >= 0.5 ? '½' : '');
+      moviesHtml += `
+        <div class="movie-entry" style="margin-left:20px">
+          ${movie.posterUrl ? `<img src="${movie.posterUrl}" alt="Poster" class="poster">` : ''}
+          <div class="movie-info">
+            <strong>${i + 1}. ${movie.title} (${movie.year})</strong><br>
+            <span class='star'>${stars}</span><br>
+            <em>${movie.review}</em><br>
+            <button onclick="moveItemInList(${listIndex}, ${i}, -1)">↑</button>
+            <button onclick="moveItemInList(${listIndex}, ${i}, 1)">↓</button>
+          </div>
+        </div>`;
+    });
+    listSection.innerHTML += `
+      <div class='list-title'>
+        <strong>${list.name}</strong>
+        <button onclick="deleteList(${listIndex})" style="margin-left: 10px;">Delete List</button>
+        ${moviesHtml}
+      </div>`;
+  });
+}
+
+function displayMovies() {
+  const listContainer = document.getElementById('movieList');
+  listContainer.innerHTML = '';
+  movieList.forEach((movie, index) => {
+    const fullStars = Math.floor(movie.rating);
+    const halfStar = movie.rating % 1 >= 0.5;
+    const stars = '★'.repeat(fullStars) + (halfStar ? '½' : '');
+    listContainer.innerHTML += `
+      <div class="movie-entry">
+        ${movie.posterUrl ? `<img src="${movie.posterUrl}" alt="Poster" class="poster">` : ''}
+        <div class="movie-info">
+          <strong>${movie.title} (${movie.year})</strong><br>
+          <span class="star">${stars}</span><br>
+          <em>${movie.review}</em><br>
+          <button class="edit-button" onclick="editReview(${index})">Edit Review</button>
+          <button class="list-button" onclick="addToList(${index})">Add to List</button>
+          <button class="list-button" onclick="setFavorite(${index})">⭐ Set as Favorite</button>
+          <button class="delete-button" onclick="deleteMovie(${index})">🗑 Delete</button>
+        </div>
+      </div>`;
+  });
+}
+
+displayMovies();
+displayLists();
+displayFavorite();
+</script>
+</body>
+</html>
